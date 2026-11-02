@@ -1,0 +1,46 @@
+# --- PYTHON & BACKEND ---
+# Python virtual environments
+venv/
+env/
+ENV/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+test/
+*.json
+*.jsonl
+*.csv
+
+# --- REACT & FRONTEND ---
+# Node dependencies
+frontend/node_modules/
+
+# Production builds
+frontend/dist/
+frontend/build/
+
+# Package manager logs and caches
+frontend/.vite/
+frontend/.npm
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# --- IDE & SYSTEM ---
+# IDE configurations
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
