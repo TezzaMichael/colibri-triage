@@ -1,64 +1,65 @@
+"""Credential retrieval helpers for external security platforms via the IOC Manager."""
+
 import json
-import requests
-import sys
 import os
+import sys
+
+import requests
+import urllib3
 from dotenv import load_dotenv
 
-import urllib3
-# Disable insecure HTTPS warnings for self-signed certificates
+# Suppress warnings from self-signed certificates on internal endpoints.
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Load environment variables from the .env file
 load_dotenv()
-raw_clients = os.getenv("CLIENT_LIST", "")
 
-def s1Api():
-    """Retrieve API credentials for SentinelOne."""
-    key = get_api_key("SentinelOne")
-    return key[0]
+_RAW_CLIENTS = os.getenv("CLIENT_LIST", "")
 
-def cortexApi(client):
-    """Validate client existence against the environment whitelist and fetch Cortex API keys."""
-    list_clients = [client.strip() for client in raw_clients.split(",") if client.strip()]
-    if client in list_clients:
-        return get_api_key(client)
-    
-    print("CLIENT NOT FOUND")
-    sys.exit(1)
 
-def xurrentApi():
-    """Retrieve API credentials for Xurrent."""
-    key = get_api_key("Xurrent")
-    return key
+def get_s1_api_key() -> str:
+    """Return the API token for SentinelOne."""
+    api_token, _, _ = get_api_key("SentinelOne")
+    return api_token
 
-def get_api_key(service):
-    """Request and parse API keys and endpoints from the centralized IOC Manager service."""
+
+def get_cortex_credentials(client: str) -> tuple[str, str, str]:
+    """Validate the client against the allowed list and return its Cortex credentials."""
+    allowed_clients = {c.strip() for c in _RAW_CLIENTS.split(",") if c.strip()}
+    if client not in allowed_clients:
+        print("CLIENT NOT FOUND")
+        sys.exit(1)
+
+    return get_api_key(client)
+
+
+def get_api_key(service: str) -> tuple[str, str, str]:
+    """Fetch (api_token, endpoint, auth_id) for the given service from the IOC Manager."""
     print("GETTING API KEY...")
-    url = os.getenv("URL_IOC")
-    data = {
-        'service': service,
-        'passcode': os.getenv("PASSCODE_IOC")
+    url = os.getenv("URL_IOC", "")
+    payload = {
+        "service": service,
+        "passcode": os.getenv("PASSCODE_IOC"),
     }
-    
-    response = requests.post(url, verify=False, json=data)
-    if response.status_code == 200:
-        try:
-            response = response.json()['data'][0]
-            api_token = response['apikey']
-            endpoint = response['endpoint']
-            
-            # Extract specific XDR authentication ID if Palo Alto Networks endpoint is detected
-            if "paloaltonetworks" in endpoint:
-                id = json.loads(response['additional_info'])['xdr-auth-id']
-            else:
-                id = ""
-                
-            print("API KEY ACQUIRED")
-        except (KeyError, IndexError, json.JSONDecodeError):
-            print("API KEY NOT FOUND")
-            sys.exit(1)
-    else:
+
+    response = requests.post(url, verify=False, json=payload)
+    if response.status_code != 200:
         print("ERROR API KEY")
         sys.exit(1)
-        
-    return api_token, endpoint, id
+
+    try:
+        record = response.json()["data"][0]
+        api_token = record["apikey"]
+        endpoint = record["endpoint"]
+
+        # Palo Alto XDR requires an additional auth ID header stored in additional_info.
+        if "paloaltonetworks" in endpoint:
+            auth_id = json.loads(record["additional_info"])["xdr-auth-id"]
+        else:
+            auth_id = ""
+
+        print("API KEY ACQUIRED")
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+        print("API KEY NOT FOUND")
+        sys.exit(1)
+
+    return api_token, endpoint, auth_id

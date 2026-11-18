@@ -51,7 +51,7 @@ Once the virtual environment is active, install the required packages and start 
 pip install -r requirements.txt
 python apicall.py
 ```
-*The backend API should now be running (typically on `localhost:8001`).*
+*The backend API should now be running (typically on `localhost:8000`).*
 
 ---
 
